@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Communal Collage Upload</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; margin-bottom: 30px; }
+        .btn { background: #007bff; color: white; border: none; padding: 12px 20px; border-radius: 5px; cursor: pointer; width: 100%; margin: 10px 0; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .upload-area { border: 2px dashed #007bff; border-radius: 5px; padding: 40px; text-align: center; margin: 20px 0; cursor: pointer; }
+        .preview { max-width: 200px; margin: 15px auto; border-radius: 5px; display: none; }
+        .message { padding: 10px; border-radius: 5px; margin: 10px 0; text-align: center; display: none; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Communal Collage</h1>
+        
+        <div>
+            <h3>Step 1: Get Upload Token</h3>
+            <button onclick="generateToken()" class="btn">Get Daily Token</button>
+            <input type="text" id="token" placeholder="Token will appear here" readonly style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px;">
+        </div>
+        
+        <div>
+            <h3>Step 2: Upload Image</h3>
+            <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                <p>📷 Click to select image</p>
+                <p style="color: #666; font-size: 14px;">PNG, JPG, JPEG, GIF, BMP (Max 10MB)</p>
+                <img id="preview" class="preview">
+            </div>
+            <input type="file" id="fileInput" accept="image/*" style="display: none;">
+            <button id="uploadBtn" class="btn" disabled>Upload to Collage</button>
+        </div>
+        
+        <div id="message" class="message"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5001';
+        let selectedFile = null;
+        let currentToken = '';
+        
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            selectedFile = e.target.files[0];
+            if (selectedFile) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('preview').src = e.target.result;
+                    document.getElementById('preview').style.display = 'block';
+                };
+                reader.readAsDataURL(selectedFile);
+                checkUploadReady();
+            }
+        });
+        
+        document.getElementById('uploadBtn').addEventListener('click', uploadImage);
+        
+        function checkUploadReady() {
+            document.getElementById('uploadBtn').disabled = !(selectedFile && currentToken);
+        }
+        
+        async function generateToken() {
+            try {
+                showMessage('Generating token...', '');
+                const response = await fetch(API_BASE + '/api/generate-token', {method: 'POST'});
+                const data = await response.json();
+                if (data.success) {
+                    currentToken = data.token;
+                    document.getElementById('token').value = data.token;
+                    checkUploadReady();
+                    showMessage('Token generated! Valid for 24 hours', 'success');
+                }
+            } catch (error) {
+                showMessage('Error generating token', 'error');
+            }
+        }
+        
+        async function uploadImage() {
+            if (!selectedFile || !currentToken) return;
+            
+            try {
+                showMessage('Uploading...', '');
+                const formData = new FormData();
+                formData.append('image', selectedFile);
+                formData.append('token', currentToken);
+                
+                const response = await fetch(API_BASE + '/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    showMessage('✅ Image uploaded successfully!', 'success');
+                    resetForm();
+                } else {
+                    showMessage('❌ ' + data.error, 'error');
+                }
+            } catch (error) {
+                showMessage('❌ Upload failed', 'error');
+            }
+        }
+        
+        function resetForm() {
+            selectedFile = null;
+            document.getElementById('fileInput').value = '';
+            document.getElementById('preview').style.display = 'none';
+            document.getElementById('uploadBtn').disabled = true;
+            currentToken = '';
+            document.getElementById('token').value = '';
+        }
+        
+        function showMessage(text, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = text;
+            messageDiv.className = 'message ' + type;
+            messageDiv.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
