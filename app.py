@@ -6,7 +6,19 @@ from datetime import datetime, timedelta
 from minio_client import MinIOClient
 
 app = Flask(__name__)
-CORS(app)
+# Configure CORS properly for production
+CORS(app, origins=[
+    "http://127.0.0.1:5001",          # Local development
+    "http://localhost:5001",          # Local development
+    "https://communal-collage-activity.onrender.com",  # Your Render URL
+    "https://your-frontend-domain.com"  # If you have a separate frontend
+])
+
+minio_client = MinIOClient()
+BUCKET_NAME = "communal-collage"
+minio_client.ensure_bucket_exists(BUCKET_NAME)
+
+daily_tokens = {}
 
 minio_client = MinIOClient()
 BUCKET_NAME = "communal-collage"
