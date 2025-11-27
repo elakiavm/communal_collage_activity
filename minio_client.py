@@ -1,13 +1,14 @@
 from minio import Minio
 import os
+import config
 
 class MinIOClient:
     def __init__(self):
-        # Use environment variables for production, fallback to localhost for development
-        self.endpoint = os.environ.get('MINIO_ENDPOINT', 'localhost:9000')
-        self.access_key = os.environ.get('MINIO_ACCESS_KEY', 'admin')
-        self.secret_key = os.environ.get('MINIO_SECRET_KEY', 'password123')
-        self.secure = os.environ.get('MINIO_SECURE', 'false').lower() == 'true'
+        # Use centralized configuration
+        self.endpoint = config.MINIO_ENDPOINT
+        self.access_key = config.MINIO_ACCESS_KEY
+        self.secret_key = config.MINIO_SECRET_KEY
+        self.secure = config.MINIO_SECURE
         
         self.client = Minio(
             self.endpoint,
@@ -16,7 +17,7 @@ class MinIOClient:
             secure=self.secure
         )
         self.use_minio = True  # Will be set to False if connection fails
-        self.local_storage_dir = os.environ.get('LOCAL_STORAGE_DIR', 'local_storage')
+        self.local_storage_dir = config.LOCAL_STORAGE_DIR
         os.makedirs(self.local_storage_dir, exist_ok=True)
         print(f"✅ MinIO client configured (endpoint: {self.endpoint})")
         

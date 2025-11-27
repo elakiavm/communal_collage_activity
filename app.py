@@ -4,18 +4,14 @@ import uuid
 import os
 from datetime import datetime, timedelta
 from minio_client import MinIOClient
+import config
 
 app = Flask(__name__)
-# Configure CORS properly for production
-CORS(app, origins=[
-    "http://127.0.0.1:5001",          # Local development
-    "http://localhost:5001",          # Local development
-    "https://communal-collage-activity.onrender.com",  # Your Render URL
-    "https://your-frontend-domain.com"  # If you have a separate frontend
-])
+# Configure CORS using centralized configuration
+CORS(app, origins=config.CORS_ORIGINS)
 
 minio_client = MinIOClient()
-BUCKET_NAME = "communal-collage"
+BUCKET_NAME = config.BUCKET_NAME
 minio_client.ensure_bucket_exists(BUCKET_NAME)
 
 daily_tokens = {}
@@ -66,21 +62,21 @@ def upload_image():
         if not image:
             return jsonify({"success": False, "error": "No image provided"}), 400
         
-        # Check file size (10MB limit)
+        # Check file size using config
         image.seek(0, os.SEEK_END)
         file_size = image.tell()
         image.seek(0)  # Reset file pointer
-        max_size = 10 * 1024 * 1024  # 10MB
+        max_size = config.MAX_FILE_SIZE_MB * 1024 * 1024
         if file_size > max_size:
-            return jsonify({"success": False, "error": f"File too large. Maximum size is 10MB, got {file_size / 1024 / 1024:.2f}MB"}), 400
+            return jsonify({"success": False, "error": f"File too large. Maximum size is {config.MAX_FILE_SIZE_MB}MB, got {file_size / 1024 / 1024:.2f}MB"}), 400
         
         # Ensure temp_uploads directory exists
         os.makedirs("temp_uploads", exist_ok=True)
         
         # Generate unique filename
         file_ext = image.filename.split('.')[-1].lower() if '.' in image.filename else 'jpg'
-        if file_ext not in ['jpg', 'jpeg', 'png', 'gif', 'bmp']:
-            return jsonify({"success": False, "error": f"Invalid file type: {file_ext}. Allowed: jpg, jpeg, png, gif, bmp"}), 400
+        if file_ext not in config.ALLOWED_EXTENSIONS:
+            return jsonify({"success": False, "error": f"Invalid file type: {file_ext}. Allowed: {', '.join(config.ALLOWED_EXTENSIONS)}"}), 400
         
         filename = f"{uuid.uuid4()}.{file_ext}"
         temp_path = f"temp_uploads/{filename}"
@@ -150,10 +146,13 @@ def reset_collage():
         return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5001))
-    debug = os.environ.get('FLASK_ENV') != 'production'
+    port = int(os.environ.get('PORT', config.LOCAL_PORT))
+    debug = not config.is_production()
     
+    base_url = config.get_base_url()
     print("🚀 Starting Communal Collage Server...")
-    print(f"📱 Access the upload page at: http://localhost:{port}")
-    print("🗄️  MinIO Admin at: http://localhost:9001")
+    print(f"📱 Access the upload page at: {base_url}")
+    if not config.is_production():
+        print(f"🗄️  MinIO Admin at: http://localhost:9001")
+    print(f"🌐 Production URL: {config.PRODUCTION_URL}")
     app.run(host='0.0.0.0', port=port, debug=debug)
