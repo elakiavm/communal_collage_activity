@@ -20,11 +20,8 @@ minio_client.ensure_bucket_exists(BUCKET_NAME)
 
 daily_tokens = {}
 
-minio_client = MinIOClient()
-BUCKET_NAME = "communal-collage"
-minio_client.ensure_bucket_exists(BUCKET_NAME)
-
-daily_tokens = {}
+# Ensure temp_uploads directory exists
+os.makedirs("temp_uploads", exist_ok=True)
 
 @app.route('/')
 def serve_upload_page():
@@ -111,7 +108,10 @@ def reset_collage():
         return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5001))
+    debug = os.environ.get('FLASK_ENV') != 'production'
+    
     print("🚀 Starting Communal Collage Server...")
-    print("📱 Access the upload page at: http://localhost:5001")
+    print(f"📱 Access the upload page at: http://localhost:{port}")
     print("🗄️  MinIO Admin at: http://localhost:9001")
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=debug)

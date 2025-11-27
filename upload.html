@@ -23,6 +23,7 @@
         
         <div>
             <h3>Step 1: Get Upload Token</h3>
+            <button onclick="testConnection()" class="btn" style="background: #28a745; margin-bottom: 5px;">Test Connection</button>
             <button onclick="generateToken()" class="btn">Get Daily Token</button>
             <input type="text" id="token" placeholder="Token will appear here" readonly style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px;">
         </div>
@@ -42,7 +43,9 @@
     </div>
 
     <script>
-        const API_BASE = 'http://localhost:5001';
+        // Use relative URLs to avoid browser extension blocking
+        // Since HTML is served from the same server, relative URLs work perfectly
+        const API_BASE = '';  // Empty string = same origin (relative URLs)
         let selectedFile = null;
         let currentToken = '';
         
@@ -65,19 +68,69 @@
             document.getElementById('uploadBtn').disabled = !(selectedFile && currentToken);
         }
         
+        async function testConnection() {
+            try {
+                showMessage('Testing connection...', '');
+                const response = await fetch('/api/health', {
+                    method: 'GET'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                showMessage('✅ Connection successful! Server: ' + data.server, 'success');
+            } catch (error) {
+                console.error('Connection test error:', error);
+                let errorMsg = 'Connection failed';
+                const errorStr = error.toString() + ' ' + (error.message || '');
+                if (errorStr.includes('ERR_BLOCKED_BY_CLIENT') || errorStr.includes('Failed to fetch') || errorStr.includes('blocked')) {
+                    errorMsg = 'Request blocked by browser extension. Please disable ad blockers or privacy extensions for this site and try again.';
+                } else if (errorStr.includes('NetworkError') || errorStr.includes('fetch') || errorStr.includes('Network')) {
+                    errorMsg = 'Cannot connect to server. Please ensure the server is running.';
+                } else {
+                    errorMsg = 'Error: ' + (error.message || error.toString());
+                }
+                showMessage(errorMsg, 'error');
+            }
+        }
+        
         async function generateToken() {
             try {
                 showMessage('Generating token...', '');
-                const response = await fetch(API_BASE + '/api/generate-token', {method: 'POST'});
+                const response = await fetch('/api/generate-token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 const data = await response.json();
                 if (data.success) {
                     currentToken = data.token;
                     document.getElementById('token').value = data.token;
                     checkUploadReady();
                     showMessage('Token generated! Valid for 24 hours', 'success');
+                } else {
+                    showMessage('Failed to generate token: ' + (data.error || 'Unknown error'), 'error');
                 }
             } catch (error) {
-                showMessage('Error generating token', 'error');
+                console.error('Token generation error:', error);
+                let errorMsg = 'Error generating token';
+                const errorStr = error.toString() + ' ' + (error.message || '');
+                if (errorStr.includes('ERR_BLOCKED_BY_CLIENT') || errorStr.includes('Failed to fetch') || errorStr.includes('blocked')) {
+                    errorMsg = 'Request blocked by browser extension. Please disable ad blockers or privacy extensions for this site and try again.';
+                } else if (errorStr.includes('NetworkError') || errorStr.includes('fetch') || errorStr.includes('Network')) {
+                    errorMsg = 'Network error. Please ensure the server is running.';
+                } else {
+                    errorMsg = 'Error: ' + (error.message || error.toString());
+                }
+                showMessage(errorMsg, 'error');
             }
         }
         
@@ -90,7 +143,7 @@
                 formData.append('image', selectedFile);
                 formData.append('token', currentToken);
                 
-                const response = await fetch(API_BASE + '/api/upload', {
+                const response = await fetch('/api/upload', {
                     method: 'POST',
                     body: formData
                 });
