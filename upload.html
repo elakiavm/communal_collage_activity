@@ -148,15 +148,22 @@
                     body: formData
                 });
                 
-                const data = await response.json();
+                let data;
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    throw new Error(`Server error (${response.status}): ${response.statusText}`);
+                }
+                
                 if (data.success) {
                     showMessage('✅ Image uploaded successfully!', 'success');
                     resetForm();
                 } else {
-                    showMessage('❌ ' + data.error, 'error');
+                    showMessage('❌ ' + (data.error || 'Upload failed'), 'error');
                 }
             } catch (error) {
-                showMessage('❌ Upload failed', 'error');
+                console.error('Upload error:', error);
+                showMessage('❌ Upload failed: ' + (error.message || error.toString()), 'error');
             }
         }
         

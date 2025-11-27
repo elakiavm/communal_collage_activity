@@ -51,6 +51,7 @@ def generate_token():
 
 @app.route('/api/upload', methods=['POST'])
 def upload_image():
+    temp_path = None
     try:
         token = request.form.get('token')
         image = request.files.get('image')
@@ -63,31 +64,72 @@ def upload_image():
             return jsonify({"success": False, "error": "Token expired or used"}), 401
         
         if not image:
-            return jsonify({"success": False, "error": "No image"}), 400
+            return jsonify({"success": False, "error": "No image provided"}), 400
+        
+        # Check file size (10MB limit)
+        image.seek(0, os.SEEK_END)
+        file_size = image.tell()
+        image.seek(0)  # Reset file pointer
+        max_size = 10 * 1024 * 1024  # 10MB
+        if file_size > max_size:
+            return jsonify({"success": False, "error": f"File too large. Maximum size is 10MB, got {file_size / 1024 / 1024:.2f}MB"}), 400
+        
+        # Ensure temp_uploads directory exists
+        os.makedirs("temp_uploads", exist_ok=True)
         
         # Generate unique filename
         file_ext = image.filename.split('.')[-1].lower() if '.' in image.filename else 'jpg'
+        if file_ext not in ['jpg', 'jpeg', 'png', 'gif', 'bmp']:
+            return jsonify({"success": False, "error": f"Invalid file type: {file_ext}. Allowed: jpg, jpeg, png, gif, bmp"}), 400
+        
         filename = f"{uuid.uuid4()}.{file_ext}"
         temp_path = f"temp_uploads/{filename}"
         
-        image.save(temp_path)
+        # Save uploaded file
+        try:
+            image.save(temp_path)
+            print(f"📁 Saved temp file: {temp_path}")
+        except Exception as e:
+            print(f"❌ Failed to save temp file: {e}")
+            return jsonify({"success": False, "error": f"Failed to save file: {str(e)}"}), 500
         
-        # Upload to MinIO
+        # Upload to storage (MinIO or local fallback)
         success = minio_client.upload_image(BUCKET_NAME, filename, temp_path)
         
         if success:
             daily_tokens[token]['used'] = True
-            os.remove(temp_path)
+            # Clean up temp file
+            try:
+                if temp_path and os.path.exists(temp_path):
+                    os.remove(temp_path)
+                    print(f"🗑️  Cleaned up temp file: {temp_path}")
+            except Exception as e:
+                print(f"⚠️  Failed to remove temp file: {e}")
+            
             return jsonify({
                 "success": True,
                 "filename": filename,
                 "message": "Image uploaded successfully!"
             })
         else:
-            return jsonify({"success": False, "error": "Upload failed"}), 500
+            return jsonify({"success": False, "error": "Upload to storage failed. Please try again."}), 500
             
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"❌ Upload error: {error_trace}")
+        
+        # Clean up temp file on error
+        try:
+            if temp_path and os.path.exists(temp_path):
+                os.remove(temp_path)
+        except:
+            pass
+        
+        return jsonify({
+            "success": False, 
+            "error": f"Upload failed: {str(e)}"
+        }), 500
 
 @app.route('/api/images', methods=['GET'])
 def list_images():
