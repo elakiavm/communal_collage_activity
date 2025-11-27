@@ -1,7 +1,7 @@
-"""
-Configuration file for Communal Collage Activity
-Change the PRODUCTION_URL here to update it everywhere in the application
-"""
+
+# Configuration file for Communal Collage Activity
+# Change the PRODUCTION_URL here to update it everywhere in the application
+
 import os
 
 # ============================================================================
