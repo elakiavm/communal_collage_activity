@@ -8,7 +8,7 @@ import os
 # CLOUD HOSTING CONFIGURATION
 # ============================================================================
 # Change this URL to your production deployment URL
-PRODUCTION_URL = "https://communal-collage-activity.onrender.com"
+PRODUCTION_URL = "https://cheerbot.cobotmakerspace.org/"
 
 # ============================================================================
 # LOCAL DEVELOPMENT CONFIGURATION
